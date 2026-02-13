@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Matematica Veselă - Joc pentru Copii</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -44,10 +44,16 @@ body {
   flex-direction: column;
   align-items: center;
   min-height: 100vh;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+  height: var(--app-height, 100vh);
   padding: 12px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
+  touch-action: manipulation;
+  overscroll-behavior: none;
 }
 
 /* ─── Zoo Bar ─── */
@@ -119,7 +125,12 @@ body {
   z-index: 10;
 }
 
-#zoo-animals .animal-slot.collected:hover .animal-name-tip,
+@media (hover: hover) {
+  #zoo-animals .animal-slot.collected:hover .animal-name-tip {
+    display: block;
+  }
+}
+
 #zoo-animals .animal-slot.collected:active .animal-name-tip {
   display: block;
 }
@@ -179,7 +190,9 @@ body {
   flex: 1;
   min-height: 0;
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Problem display */
@@ -308,6 +321,8 @@ body {
   align-items: center;
   justify-content: center;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  -webkit-appearance: none;
 }
 
 .num-btn:active {
@@ -364,12 +379,14 @@ body {
   align-items: center;
   justify-content: center;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  -webkit-appearance: none;
 }
 
 #stats-overlay {
   display: none;
   position: fixed;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   background: rgba(0,0,0,0.35);
   z-index: 200;
   align-items: center;
@@ -433,6 +450,8 @@ body {
   font-size: 18px;
   font-weight: 800;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-appearance: none;
 }
 
 #reset-btn {
@@ -446,6 +465,8 @@ body {
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-appearance: none;
 }
 
 /* ─── Streak badge ─── */
@@ -476,7 +497,7 @@ body {
 #celebration-overlay {
   display: none;
   position: fixed;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   z-index: 300;
   pointer-events: none;
   align-items: center;
@@ -503,7 +524,7 @@ body {
 
 canvas#confetti-canvas {
   position: fixed;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
@@ -514,7 +535,7 @@ canvas#confetti-canvas {
 #new-animal-popup {
   display: none;
   position: fixed;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   background: rgba(0,0,0,0.35);
   z-index: 400;
   align-items: center;
@@ -565,6 +586,8 @@ canvas#confetti-canvas {
   font-size: 18px;
   font-weight: 800;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-appearance: none;
 }
 
 /* ─── Star burst animation ─── */
@@ -1192,16 +1215,22 @@ function triggerSuperStar() {
 function launchConfetti() {
   const canvas = document.getElementById('confetti-canvas');
   const ctx = canvas.getContext('2d');
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  ctx.scale(dpr, dpr);
 
   const pieces = [];
   const confettiColors = ['#FF6B6B','#FFD93D','#6BCB77','#4D96FF','#FF6FD8','#C490E4','#FF9671','#FFC75F'];
 
+  const logicalW = window.innerWidth;
+  const logicalH = window.innerHeight;
   for (let i = 0; i < 150; i++) {
     pieces.push({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height - canvas.height,
+      x: Math.random() * logicalW,
+      y: Math.random() * logicalH - logicalH,
       w: Math.random() * 10 + 5,
       h: Math.random() * 6 + 3,
       color: confettiColors[Math.floor(Math.random() * confettiColors.length)],
@@ -1214,13 +1243,13 @@ function launchConfetti() {
 
   let frame = 0;
   function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, logicalW, logicalH);
     let alive = false;
     pieces.forEach(p => {
       p.y += p.vy;
       p.x += p.vx;
       p.rot += p.rotSpeed;
-      if (p.y < canvas.height + 20) alive = true;
+      if (p.y < logicalH + 20) alive = true;
 
       ctx.save();
       ctx.translate(p.x, p.y);
@@ -1234,7 +1263,7 @@ function launchConfetti() {
     if (alive && frame < 200) {
       requestAnimationFrame(draw);
     } else {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, logicalW, logicalH);
     }
   }
   requestAnimationFrame(draw);
@@ -1297,6 +1326,31 @@ document.addEventListener('keydown', (e) => {
     }
   }
 });
+
+// ═══════════════════════════════════════════
+//  iOS SAFARI VIEWPORT FIX
+// ═══════════════════════════════════════════
+
+function setViewportHeight() {
+  const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  document.documentElement.style.setProperty('--app-height', vh + 'px');
+}
+
+setViewportHeight();
+
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', setViewportHeight);
+} else {
+  window.addEventListener('resize', setViewportHeight);
+}
+
+// Prevent iOS Safari bounce/pull-to-refresh
+document.addEventListener('touchmove', function(e) {
+  if (e.target.closest('#game-card')) return;
+  if (e.touches.length === 1) {
+    e.preventDefault();
+  }
+}, { passive: false });
 
 // ═══════════════════════════════════════════
 //  INIT
