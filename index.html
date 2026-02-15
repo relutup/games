@@ -833,6 +833,120 @@ canvas#confetti-canvas {
   100% { opacity: 0; transform: scale(0) translate(var(--px), var(--py)); }
 }
 
+/* ─── Animal escape animation ─── */
+#zoo-animals .animal-slot.escaping {
+  animation: animalEscape 1s ease-in forwards;
+}
+
+@keyframes animalEscape {
+  0% { transform: scale(1); opacity: 1; }
+  30% { transform: scale(1.3) rotate(-10deg); opacity: 1; }
+  60% { transform: scale(0.8) translateY(-40px) rotate(15deg); opacity: 0.6; }
+  100% { transform: scale(0) translateY(-80px) rotate(30deg); opacity: 0; }
+}
+
+/* ─── Escape popup ─── */
+#escape-popup {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 400;
+  align-items: center;
+  justify-content: center;
+}
+
+#escape-popup.open {
+  display: flex;
+}
+
+#escape-card {
+  background: var(--card-solid);
+  border-radius: var(--radius);
+  padding: 32px;
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  animation: popIn 0.5s ease;
+  max-width: 320px;
+  width: 85%;
+}
+
+#escape-card .escape-emoji {
+  font-size: 72px;
+  margin-bottom: 8px;
+}
+
+#escape-card .escape-label {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+#escape-card .escape-msg {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-light);
+  margin-bottom: 18px;
+}
+
+#escape-card button {
+  padding: 12px 36px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--peach), #FFA07A);
+  color: #5A3E28;
+  font-family: 'Nunito', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+  touch-action: manipulation;
+  min-height: 48px;
+}
+
+/* ─── Attempt indicator ─── */
+#attempt-indicator {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+  min-height: 28px;
+}
+
+#attempt-indicator .attempt-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--coral);
+  transition: all 0.4s ease;
+  box-shadow: 0 2px 6px rgba(255,138,128,0.4);
+}
+
+#attempt-indicator .attempt-dot.used {
+  background: rgba(200,190,180,0.3);
+  box-shadow: none;
+  transform: scale(0.7);
+}
+
+#attempt-indicator .attempt-dot.just-used {
+  animation: attemptLost 0.5s ease;
+}
+
+@keyframes attemptLost {
+  0% { transform: scale(1); background: var(--coral); }
+  50% { transform: scale(1.4); background: #FF4444; }
+  100% { transform: scale(0.7); background: rgba(200,190,180,0.3); }
+}
+
+#attempt-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-light);
+}
+
 @keyframes popIn {
   0% { transform: scale(0.6); opacity: 0; }
   70% { transform: scale(1.08); opacity: 1; }
@@ -945,6 +1059,7 @@ canvas#confetti-canvas {
     <div id="problem-text"></div>
   </div>
   <div id="answer-display"><span id="answer-digits"></span><span class="cursor"></span></div>
+  <div id="attempt-indicator"></div>
   <div id="feedback-area">
     <div id="feedback-text"></div>
     <div id="auto-advance-bar"><div id="auto-advance-fill"></div></div>
@@ -961,9 +1076,20 @@ canvas#confetti-canvas {
     <div class="stat-row"><span class="stat-label">Precizie</span><span class="stat-value" id="stat-accuracy">0%</span></div>
     <div class="stat-row"><span class="stat-label">Animale colecționate</span><span class="stat-value" id="stat-animals">0 / 20</span></div>
     <div class="stat-row"><span class="stat-label">Cel mai mare streak</span><span class="stat-value" id="stat-best-streak">0</span></div>
+    <div class="stat-row"><span class="stat-label">Timp total</span><span class="stat-value" id="stat-time">0 min</span></div>
     <button id="stats-close">Închide</button>
     <br>
     <button id="reset-btn">Resetează progresul</button>
+  </div>
+</div>
+
+<!-- Escape popup -->
+<div id="escape-popup">
+  <div id="escape-card">
+    <div class="escape-emoji" id="escape-animal-emoji"></div>
+    <div class="escape-label" id="escape-animal-name"></div>
+    <div class="escape-msg">Oh nu! Un animal a fugit din grădina zoo! Răspunde corect ca să-l aduci înapoi! 😢</div>
+    <button id="escape-close">Am înțeles! 💪</button>
   </div>
 </div>
 
@@ -1062,6 +1188,8 @@ function defaultState() {
     streak: 0,
     bestStreak: 0,
     consecCorrect: 0,
+    consecWrong: 0,
+    totalSeconds: 0,
   };
 }
 
@@ -1083,6 +1211,26 @@ let currentRetries = 0;
 let answerStr = '';
 let waitingForNext = false;
 let autoAdvanceTimer = null;
+
+// Time tracking
+let timeTrackingInterval = null;
+function startTimeTracking() {
+  if (timeTrackingInterval) return;
+  timeTrackingInterval = setInterval(() => {
+    state.totalSeconds++;
+    if (state.totalSeconds % 10 === 0) saveState(); // save every 10s
+  }, 1000);
+}
+// Pause when tab is hidden
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    clearInterval(timeTrackingInterval);
+    timeTrackingInterval = null;
+    saveState();
+  } else {
+    startTimeTracking();
+  }
+});
 
 // ═══════════════════════════════════════════
 //  PROBLEM GENERATION
@@ -1175,6 +1323,7 @@ const $diffBadge = document.getElementById('difficulty-badge');
 const $advanceBar = document.getElementById('auto-advance-bar');
 const $advanceFill = document.getElementById('auto-advance-fill');
 const $gameCard = document.getElementById('game-card');
+const $attemptIndicator = document.getElementById('attempt-indicator');
 
 function renderZoo() {
   $zooAnimals.innerHTML = '';
@@ -1213,6 +1362,37 @@ function renderDifficulty() {
   const d = state.difficulty;
   $diffBadge.textContent = DIFFICULTY_LABELS[d - 1];
   $diffBadge.style.background = DIFFICULTY_COLORS[d - 1];
+}
+
+function renderAttempts() {
+  $attemptIndicator.innerHTML = '';
+  const maxAttempts = 3;
+  const label = document.createElement('span');
+  label.id = 'attempt-label';
+  label.textContent = 'Încercări:';
+  $attemptIndicator.appendChild(label);
+  for (let i = 0; i < maxAttempts; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'attempt-dot' + (i < currentRetries ? ' used' : '');
+    $attemptIndicator.appendChild(dot);
+  }
+}
+
+function animateAttemptLost(retryIndex) {
+  const dots = $attemptIndicator.querySelectorAll('.attempt-dot');
+  const dot = dots[retryIndex - 1]; // retryIndex is 1-based after increment
+  if (dot) {
+    dot.classList.add('used', 'just-used');
+    setTimeout(() => dot.classList.remove('just-used'), 600);
+  }
+}
+
+function formatTime(totalSeconds) {
+  const hrs = Math.floor(totalSeconds / 3600);
+  const mins = Math.floor((totalSeconds % 3600) / 60);
+  if (hrs > 0) return hrs + ' h ' + mins + ' min';
+  if (mins > 0) return mins + ' min';
+  return '< 1 min';
 }
 
 function clearAutoAdvance() {
@@ -1265,6 +1445,7 @@ function showProblem() {
   $numpad.classList.remove('disabled');
   buildNumpad();
   renderDifficulty();
+  renderAttempts();
 }
 
 function buildNumpad() {
@@ -1358,6 +1539,7 @@ function handleCorrect() {
   state.correctCount++;
   state.streak++;
   state.consecCorrect++;
+  state.consecWrong = 0;
   if (state.streak > state.bestStreak) state.bestStreak = state.streak;
 
   state.stars++;
@@ -1374,7 +1556,10 @@ function handleCorrect() {
     state.consecCorrect = 0;
   }
 
-  const msg = CORRECT_MSGS[Math.floor(Math.random() * CORRECT_MSGS.length)];
+  // Show celebration message only after 2+ consecutive correct answers
+  const msg = state.streak >= 2
+    ? CORRECT_MSGS[Math.floor(Math.random() * CORRECT_MSGS.length)]
+    : 'Corect! ✓';
   showFeedback(msg, '#2D8A2E');
   $problem.textContent = currentProblem.a + ' ' + currentProblem.op + ' ' + currentProblem.b + ' = ' + currentProblem.answer;
   $answerDigits.textContent = '';
@@ -1414,15 +1599,19 @@ function handleWrong() {
   currentRetries++;
   state.streak = 0;
   state.consecCorrect = 0;
+  state.consecWrong++;
   renderStreak();
+  animateAttemptLost(currentRetries);
 
   // Flash card red
   $gameCard.classList.remove('flash-correct', 'flash-wrong');
   void $gameCard.offsetWidth;
   $gameCard.classList.add('flash-wrong');
 
-  if (currentRetries < 2) {
-    const msg = RETRY_MSGS[Math.floor(Math.random() * RETRY_MSGS.length)];
+  if (currentRetries < 3) {
+    const remaining = 3 - currentRetries;
+    const msg = RETRY_MSGS[Math.floor(Math.random() * RETRY_MSGS.length)]
+      + (remaining === 1 ? ' (Ultima încercare!)' : '');
     showFeedback(msg, '#C0600A');
     answerStr = '';
     $answerDigits.textContent = '';
@@ -1439,6 +1628,21 @@ function handleWrong() {
     showVisualExplanation();
     waitingForNext = true;
     $numpad.classList.add('disabled');
+
+    // Check for animal escape penalty (3 consecutive wrong problems)
+    if (state.consecWrong >= 3 && state.animalsCollected > 0) {
+      state.animalsCollected--;
+      state.consecWrong = 0;
+      // Recalculate stars to match (animal count × 5)
+      if (state.stars > state.animalsCollected * 5) {
+        state.stars = state.animalsCollected * 5;
+      }
+      renderProgress();
+      saveState();
+      setTimeout(() => showEscapePopup(state.animalsCollected), 800);
+      return; // popup will handle flow
+    }
+
     startAutoAdvance(3000);
   }
   saveState();
@@ -1563,6 +1767,26 @@ function spawnParticles() {
   }
 }
 
+function showEscapePopup(idx) {
+  const animal = ANIMALS[idx]; // idx is now the escaped animal's index
+  document.getElementById('escape-animal-emoji').textContent = animal.emoji;
+  document.getElementById('escape-animal-name').textContent = animal.name + ' a fugit!';
+  // Animate the animal slot escaping
+  const slots = $zooAnimals.querySelectorAll('.animal-slot');
+  if (slots[idx]) {
+    slots[idx].classList.add('escaping');
+    setTimeout(() => renderZoo(), 1000);
+  }
+  setTimeout(() => {
+    document.getElementById('escape-popup').classList.add('open');
+  }, 1000);
+}
+
+document.getElementById('escape-close').addEventListener('click', () => {
+  document.getElementById('escape-popup').classList.remove('open');
+  setTimeout(showProblem, 300);
+});
+
 function showNewAnimalPopup(idx) {
   const animal = ANIMALS[idx];
   document.getElementById('popup-animal-emoji').textContent = animal.emoji;
@@ -1655,6 +1879,7 @@ document.getElementById('stats-btn').addEventListener('click', () => {
   document.getElementById('stat-accuracy').textContent = accuracy + '%';
   document.getElementById('stat-animals').textContent = state.animalsCollected + ' / ' + ANIMALS.length;
   document.getElementById('stat-best-streak').textContent = state.bestStreak;
+  document.getElementById('stat-time').textContent = formatTime(state.totalSeconds);
   document.getElementById('stats-overlay').classList.add('open');
 });
 
@@ -1748,6 +1973,7 @@ renderProgress();
 renderStreak();
 renderDifficulty();
 showProblem();
+startTimeTracking();
 
 </script>
 </body>
