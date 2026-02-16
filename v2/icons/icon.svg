@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="102" fill="#FFE8D6"/>
+  <rect x="40" y="40" width="432" height="432" rx="80" fill="#FFF8F0" opacity="0.6"/>
+  <text y="280" x="256" font-size="220" text-anchor="middle" font-family="Arial">🦁</text>
+  <text y="430" x="256" font-size="100" text-anchor="middle" font-weight="bold" fill="#4A3728" font-family="Arial">1+2</text>
+</svg>
